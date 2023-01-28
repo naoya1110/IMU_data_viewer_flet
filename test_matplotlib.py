@@ -18,9 +18,6 @@ def main(page: ft.page):
     
     t = ft.Text(size=30)
     plot = MatplotlibChart(fig, expand=True)
-
-    
-
     page.add(t)
     page.add(plot)    
     

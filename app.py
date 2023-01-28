@@ -36,7 +36,7 @@ def draw_figure(ax_gyro, ax_acc, t_list,
     ax_gyro.set_yticks(np.arange(-400, 401, 100))
     ax_acc.set_ylim(-5, 5)
     ax_acc.set_yticks(np.arange(-5, 5.1, 1))
-    ax_gyro.set_ylabel("Rotation (RPM)")
+    ax_gyro.set_ylabel("Rotation Speed (RPM)")
     ax_acc.set_ylabel("Acceleration (G)")
     ax_acc.set_xlabel("Time (s)")
     return ax_gyro, ax_acc
@@ -45,7 +45,7 @@ def draw_figure(ax_gyro, ax_acc, t_list,
 def main(page: ft.page):
 
 
-    fig = plt.figure(figsize=(8,6))        # グラフのサイズを指定
+    fig = plt.figure(figsize=(8, 5))        # グラフのサイズを指定
     plt.rcParams["font.size"] = 10    # フォントサイズ
     ax_gyro = fig.add_subplot(2, 1, 1)
     ax_acc = fig.add_subplot(2, 1, 2)
@@ -65,11 +65,22 @@ def main(page: ft.page):
 
     is_receiving_ble = False
 
-    app_title = ft.Text("IMU data viewer",size=30)
+    page.title = "IMU data viewer"
+    page.window_width = 700
+    page.window_height=700
+    page.bgcolor = "WHITE"
+
+    app_title = ft.Text("IMU data viewer",size=40)
     current_time = ft.Text(size=30)
     message = ft.Text(size=30)
     plot = MatplotlibChart(fig, expand=True)
 
+    #page.add(ft.Column(controls=[
+    #    ft.Row(controls=[app_title]),
+    #    current_time,
+    #    message,
+    #    plot
+    #]))
     page.add(app_title)
     page.add(current_time)
     page.add(message)
@@ -78,7 +89,8 @@ def main(page: ft.page):
     plot.value = fig
     now_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     current_time.value = now_str
-    message.value = "Waiting for motion"
+    message.value = "Preparing"
+    message.color = "red"
     page.update () 
 
     with serial.Serial('COM5', 9600, timeout=1) as ser:
@@ -89,9 +101,16 @@ def main(page: ft.page):
                 text_data = line.decode().split("\n")[0]
                 print(line)
                 
+                
                 if text_data=="":
                     now_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
                     current_time.value = now_str
+                    message.value = ""
+                    page.update()
+                    time.sleep(0.01)
+                    message.value = "Waiting for motion"
+                    message.color = "green"
+                    page.update() 
                 
                 # print(text_data)
 
@@ -118,10 +137,8 @@ def main(page: ft.page):
                                                     accX_list, accY_list, accZ_list)
                 
                     plot.value = fig
-                    now_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-                    current_time.value = now_str
-                    message.value = "Waiting for next motion"
-                    page.update () 
+                    page.update()
+
                     
                 
                 elif is_receiving_ble:
@@ -159,6 +176,7 @@ def main(page: ft.page):
                     accZ_list = []
                     
                     message.value = "Receiving data via BLE"
+                    message.color = "blue"
                     page.update()
                     #plt.close()
 
