@@ -34,8 +34,8 @@ def draw_figure(ax_gyro, ax_acc, t_list,
     ax_acc.set_xlim(0, max(t_list))
     ax_gyro.set_ylim(-400, 400)
     ax_gyro.set_yticks(np.arange(-400, 401, 100))
-    ax_acc.set_ylim(-5, 5)
-    ax_acc.set_yticks(np.arange(-5, 5.1, 1))
+    ax_acc.set_ylim(-10, 10)
+    ax_acc.set_yticks(np.arange(-10, 10.1, 2.5))
     ax_gyro.set_ylabel("Rotation Speed (RPM)")
     ax_acc.set_ylabel("Acceleration (G)")
     ax_acc.set_xlabel("Time (s)")
@@ -93,7 +93,7 @@ def main(page: ft.page):
     message.color = "red"
     page.update () 
 
-    with serial.Serial('COM5', 9600, timeout=1) as ser:
+    with serial.Serial('COM4', 9600, timeout=1) as ser:
             
         while True:
             try:
