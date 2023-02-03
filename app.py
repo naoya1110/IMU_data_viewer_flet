@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import serial
+from serial.tools import list_ports
 import time
 from datetime import datetime
 
@@ -43,6 +44,11 @@ def draw_figure(ax_gyro, ax_acc, t_list,
 
 
 def main(page: ft.page):
+    
+    ports = list_ports.comports()
+    devices = [info.device for info in ports]
+    dropdown = ft.Dropdown(height=60, width=150,
+                        options=[ft.dropdown.Option(portname) for portname in devices])
 
 
     fig = plt.figure(figsize=(8, 5))        # グラフのサイズを指定
@@ -83,118 +89,121 @@ def main(page: ft.page):
     #]))
     page.add(app_title)
     page.add(current_time)
+    page.add(dropdown)
     page.add(message)
     page.add(plot)
     
     plot.value = fig
     now_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
     current_time.value = now_str
-    message.value = "Preparing"
+    message.value = "Please select port"
     message.color = "red"
     page.update () 
+    
+    while True:
+        
+        selected_port = dropdown.value
 
-    with serial.Serial('COM4', 9600, timeout=1) as ser:
-            
-        while True:
-            try:
-                line = ser.readline()   # read a '\n' terminated line
-                text_data = line.decode().split("\n")[0]
-                print(line)
-                
-                
-                if text_data=="":
-                    now_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-                    current_time.value = now_str
-                    message.value = ""
-                    page.update()
-                    time.sleep(0.01)
-                    message.value = "Waiting for motion"
-                    message.color = "green"
-                    page.update() 
-                
-                # print(text_data)
-
-                if text_data == "end":
-                    is_receiving_ble = False
+        if selected_port:
+            with serial.Serial(selected_port, 9600, timeout=1) as ser:
+                print(ser)
                     
-                    for i_start, moveflag in enumerate(moveflag_list):
-                        if moveflag == 1:
-                            print(i_start)
-                            i_start = max(0, i_start-20)
-                            break
+                while True:
+                    try:
+                        line = ser.readline()   # read a '\n' terminated line
+                        text_data = line.decode().split("\n")[0]
+                        print(line)
+                        
+                        
+                        
+                        if text_data=="":
+                            now_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+                            current_time.value = now_str
+                            message.value = ""
+                            page.update()
+                            time.sleep(0.01)
+                            message.value = "Waiting for motion"
+                            message.color = "green"
+                            page.update() 
+                        
+                        if text_data == "end":
+                            is_receiving_ble = False
+                            
+                            for i_start, moveflag in enumerate(moveflag_list):
+                                if moveflag == 1:
+                                    print(i_start)
+                                    i_start = max(0, i_start-20)
+                                    break
+                            
+                            i_max = t_list.index(max(t_list))
+                            t_list = list(np.array(t_list)-t_list[i_start])
+                            t_list = t_list[i_start:i_max]
+                            gyroX_list = gyroX_list[i_start:i_max]
+                            gyroY_list = gyroY_list[i_start:i_max]
+                            gyroZ_list = gyroZ_list[i_start:i_max]
+                            accX_list = accX_list[i_start:i_max]
+                            accY_list = accY_list[i_start:i_max]
+                            accZ_list = accZ_list[i_start:i_max]
+                            ax_gyro, ax_acc = draw_figure(ax_gyro, ax_acc, t_list, 
+                                                            gyroX_list, gyroY_list, gyroZ_list, 
+                                                            accX_list, accY_list, accZ_list)
+                        
+                            plot.value = fig
+                            page.update()
+
+                            
+                        
+                        elif is_receiving_ble:
+                            count, moveflag, elapsed_time, accX, accY, accZ, gyroX, gyroY, gyroZ = text_data.split("\t")
+                            moveflag = int(moveflag)
+                            elapsed_time = float(elapsed_time)
+                            accX = float(accX)
+                            accY = float(accY)
+                            accZ = float(accZ)
+                            gyroX = float(gyroX)
+                            gyroY = float(gyroY)
+                            gyroZ = float(gyroZ.split("\n")[0])
+                            
+                            elapsed_time = elapsed_time/1E3
+                            t_list.append(elapsed_time)
+                            moveflag_list.append(moveflag)
+                            gyroX_list.append(gyroX)
+                            gyroY_list.append(gyroY)
+                            gyroZ_list.append(gyroZ)
+                            accX_list.append(accX)
+                            accY_list.append(accY)
+                            accZ_list.append(accZ)
+                            
+                            
+                        
+                        elif text_data == "start":
+                            is_receiving_ble = True
+                            t_list = []
+                            moveflag_list = []
+                            gyroX_list = []
+                            gyroY_list = []
+                            gyroZ_list = []
+                            accX_list = []
+                            accY_list = []
+                            accZ_list = []
+                            
+                            message.value = "Receiving data via BLE"
+                            message.color = "blue"
+                            page.update()
+                            #plt.close()
+
+
+
+                    except ValueError:
+                        pass
+
+                    except KeyboardInterrupt:
+                        # print(t_list)
+                        print("Keyboard Interrupt")
+                        print(len(t_list))
+                        ser.close()
+                        break
                     
-                    i_max = t_list.index(max(t_list))
-                    t_list = list(np.array(t_list)-t_list[i_start])
-                    t_list = t_list[i_start:i_max]
-                    gyroX_list = gyroX_list[i_start:i_max]
-                    gyroY_list = gyroY_list[i_start:i_max]
-                    gyroZ_list = gyroZ_list[i_start:i_max]
-                    accX_list = accX_list[i_start:i_max]
-                    accY_list = accY_list[i_start:i_max]
-                    accZ_list = accZ_list[i_start:i_max]
-                    ax_gyro, ax_acc = draw_figure(ax_gyro, ax_acc, t_list, 
-                                                    gyroX_list, gyroY_list, gyroZ_list, 
-                                                    accX_list, accY_list, accZ_list)
-                
-                    plot.value = fig
-                    page.update()
-
-                    
-                
-                elif is_receiving_ble:
-                    count, moveflag, elapsed_time, accX, accY, accZ, gyroX, gyroY, gyroZ = text_data.split("\t")
-                    moveflag = int(moveflag)
-                    elapsed_time = float(elapsed_time)
-                    accX = float(accX)
-                    accY = float(accY)
-                    accZ = float(accZ)
-                    gyroX = float(gyroX)
-                    gyroY = float(gyroY)
-                    gyroZ = float(gyroZ.split("\n")[0])
-                    
-                    elapsed_time = elapsed_time/1E3
-                    t_list.append(elapsed_time)
-                    moveflag_list.append(moveflag)
-                    gyroX_list.append(gyroX)
-                    gyroY_list.append(gyroY)
-                    gyroZ_list.append(gyroZ)
-                    accX_list.append(accX)
-                    accY_list.append(accY)
-                    accZ_list.append(accZ)
-                    
-                     
-                
-                elif text_data == "start":
-                    is_receiving_ble = True
-                    t_list = []
-                    moveflag_list = []
-                    gyroX_list = []
-                    gyroY_list = []
-                    gyroZ_list = []
-                    accX_list = []
-                    accY_list = []
-                    accZ_list = []
-                    
-                    message.value = "Receiving data via BLE"
-                    message.color = "blue"
-                    page.update()
-                    #plt.close()
-
-
-                    
-
-
-
-            
-            except ValueError:
-                pass
-
-            except KeyboardInterrupt:
-                # print(t_list)
-                print("Keyboard Interrupt")
-                print(len(t_list))
-                ser.close()
-                break
 
 
 ft.app(target=main)
